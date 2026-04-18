@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Squad Game</title>
+  <style>
+    body { margin:0; overflow:hidden; background:#222; }
+    canvas { display:block; margin:auto; background:#333; }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = 800;
+canvas.height = 500;
+
+let player = { x: 400, y: 250, size: 15, color: "lime", speed: 3, range: 120 };
+let enemies = [];
+let bullets = [];
+
+function spawnEnemy(){
+  enemies.push({
+    x: Math.random()*canvas.width,
+    y: Math.random()*canvas.height,
+    size: 10,
+    color: "red",
+    hp: 3
+  });
+}
+setInterval(spawnEnemy, 1000);
+
+let keys = {};
+
+// better keyboard handling
+window.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if(["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)){
+    keys[k] = true;
+    e.preventDefault();
+  }
+});
+
+window.addEventListener("keyup", e => {
+  const k = e.key.toLowerCase();
+  keys[k] = false;
+});
+
+function shoot(target){
+  bullets.push({
+    x: player.x,
+    y: player.y,
+    size: 4,
+    speed: 5,
+    dx: target.x - player.x,
+    dy: target.y - player.y
+  });
+}
+
+function update(){
+  // movement (WASD + arrows)
+  if(keys["w"] || keys["arrowup"]) player.y -= player.speed;
+  if(keys["s"] || keys["arrowdown"]) player.y += player.speed;
+  if(keys["a"] || keys["arrowleft"]) player.x -= player.speed;
+  if(keys["d"] || keys["arrowright"]) player.x += player.speed;
+
+  // keep player in bounds
+  player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+  player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+
+  // enemies follow
+  enemies.forEach((e)=>{
+    let dx = player.x - e.x;
+    let dy = player.y - e.y;
+    let dist = Math.sqrt(dx*dx + dy*dy);
+
+    e.x += dx/dist * 1;
+    e.y += dy/dist * 1;
+  });
+
+  // auto attack
+  let closest = null;
+  let minDist = Infinity;
+  enemies.forEach(e=>{
+    let d = Math.hypot(e.x-player.x, e.y-player.y);
+    if(d < minDist && d < player.range){
+      minDist = d;
+      closest = e;
+    }
+  });
+
+  if(closest && Math.random() < 0.05){
+    shoot(closest);
+  }
+
+  // bullets move
+  bullets.forEach((b, bi)=>{
+    let dist = Math.hypot(b.dx, b.dy);
+    b.x += (b.dx/dist)*b.speed;
+    b.y += (b.dy/dist)*b.speed;
+
+    // hit detection
+    enemies.forEach((e, ei)=>{
+      let d = Math.hypot(b.x-e.x, b.y-e.y);
+      if(d < e.size){
+        e.hp--;
+        bullets.splice(bi,1);
+        if(e.hp <= 0){
+          enemies.splice(ei,1);
+          player.size += 0.5;
+        }
+      }
+    });
+  });
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // player
+  ctx.fillStyle = player.color;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.size, 0, Math.PI*2);
+  ctx.fill();
+
+  // enemies
+  enemies.forEach(e=>{
+    ctx.fillStyle = e.color;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // bullets
+  bullets.forEach(b=>{
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
